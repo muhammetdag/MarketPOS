@@ -1,0 +1,57 @@
+## Visual Studio & .NET Build Artifacts
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Tt]est[Rr]esult*/
+TestResults/
+
+## Publish Outputs (Binaries & Standalone packages)
+publish/
+publish-standalone/
+publish-singlefile/
+
+## Visual Studio & IDE Specific Files
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svclog
+*.sln.docstates
+
+## Database & Runtime Data (SQLite & Settings)
+# Live market database files should not be tracked
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Configuration file with personal bot tokens / credentials
+config.json
+
+## Crash dumps & Native files
+*.dmp
+*.dump
+*.crashdump
+createdump.exe
+
+## Windows System Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## macOS Files
+.DS_Store
+.AppleDouble
+.LSOverride
