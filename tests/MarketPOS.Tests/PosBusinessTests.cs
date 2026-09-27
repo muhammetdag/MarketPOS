@@ -328,4 +328,55 @@ public class PosBusinessTests : IDisposable
         _settingsRepo.Set("CalculateChange", "1");
         Assert.Equal("1", _settingsRepo.Get("CalculateChange", "1"));
     }
+
+    [Fact]
+    public void NegativeStock_CanBeDetected_AndResetToZero()
+    {
+        // Insert a product with negative stock simulating the scenario
+        var prod = new Product
+        {
+            Barcode = "DEODORANT_TEST",
+            Name = "TEST DEODORANT",
+            BuyPrice = 80.00m,
+            SellPrice = 120.00m,
+            StockQuantity = -11m,
+            Unit = "Adet",
+            KdvRate = 10,
+            IsFastProduct = false
+        };
+        _productRepo.Add(prod);
+
+        // Verify detection
+        var negProducts = _productRepo.GetNegativeStockProducts();
+        Assert.Contains(negProducts, p => p.Barcode == "DEODORANT_TEST" && p.StockQuantity == -11m);
+
+        // Reset to zero
+        int resetCount = _productRepo.ResetNegativeStocksToZero();
+        Assert.True(resetCount >= 1);
+
+        // Verify updated
+        var updated = _productRepo.GetByBarcode("DEODORANT_TEST");
+        Assert.NotNull(updated);
+        Assert.Equal(0m, updated.StockQuantity);
+
+        var remainingNeg = _productRepo.GetNegativeStockProducts();
+        Assert.DoesNotContain(remainingNeg, p => p.Barcode == "DEODORANT_TEST");
+    }
+
+    [Fact]
+    public void StockExceedAction_Setting_PersistsCorrectly()
+    {
+        // Default
+        string defaultAction = _settingsRepo.Get("StockExceedAction", "warn_confirm");
+        Assert.Equal("warn_confirm", defaultAction);
+
+        // Set to block
+        _settingsRepo.Set("StockExceedAction", "block");
+        Assert.Equal("block", _settingsRepo.Get("StockExceedAction"));
+
+        // Set back to warn_confirm
+        _settingsRepo.Set("StockExceedAction", "warn_confirm");
+        Assert.Equal("warn_confirm", _settingsRepo.Get("StockExceedAction"));
+    }
 }
+

@@ -123,7 +123,7 @@ public class ProductForm : Form
             Font = Theme.RegularFont,
             DecimalPlaces = 2,
             Maximum = 999999,
-            Minimum = 0,
+            Minimum = -999999,
             Value = 1
         };
 
@@ -196,23 +196,27 @@ public class ProductForm : Form
             BackColor = Color.Transparent
         };
 
-        var lblSearch = new Label { Text = "Ürün Ara:", Location = new Point(5, 12), Size = new Size(80, 25), Font = Theme.BoldFont };
-        _txtSearch = new TextBox { Location = new Point(90, 8), Size = new Size(320, 30), Font = Theme.RegularFont, PlaceholderText = "Barkod veya ürün adı..." };
+        var lblSearch = new Label { Text = "Ürün Ara:", Location = new Point(5, 12), Size = new Size(75, 25), Font = Theme.BoldFont };
+        _txtSearch = new TextBox { Location = new Point(85, 8), Size = new Size(240, 30), Font = Theme.RegularFont, PlaceholderText = "Barkod veya ürün adı..." };
         _txtSearch.TextChanged += (s, e) => RefreshProductList(_txtSearch.Text);
 
-        var btnDelete = new Button { Text = "Seçili Ürünü Sil", Location = new Point(430, 8), Size = new Size(140, 34) };
-        Theme.ApplyModernButton(btnDelete, Theme.DangerRed, Color.White, 10F, true);
+        var btnDelete = new Button { Text = "Seçili Ürünü Sil", Location = new Point(335, 8), Size = new Size(125, 34) };
+        Theme.ApplyModernButton(btnDelete, Theme.DangerRed, Color.White, 9.5F, true);
         btnDelete.Click += OnDeleteClick;
 
-        var btnAddStock = new Button { Text = "Stok Ekle", Location = new Point(580, 8), Size = new Size(120, 34) };
-        Theme.ApplyModernButton(btnAddStock, Theme.PrimaryBlue, Color.White, 10F, true);
+        var btnAddStock = new Button { Text = "Stok Ekle", Location = new Point(470, 8), Size = new Size(110, 34) };
+        Theme.ApplyModernButton(btnAddStock, Theme.PrimaryBlue, Color.White, 9.5F, true);
         btnAddStock.Click += (s, e) => OpenAddStockDialog();
 
-        var btnLowStockFilter = new Button { Text = "Kritik Stoklar (<=5)", Location = new Point(710, 8), Size = new Size(150, 34) };
-        Theme.ApplyModernButton(btnLowStockFilter, Theme.AmberWarning, Color.White, 10F, true);
+        var btnLowStockFilter = new Button { Text = "Kritik Stoklar (<=5)", Location = new Point(590, 8), Size = new Size(140, 34) };
+        Theme.ApplyModernButton(btnLowStockFilter, Theme.AmberWarning, Color.White, 9.5F, true);
         btnLowStockFilter.Click += (s, e) => ShowLowStockOnly();
 
-        pnlSearch.Controls.AddRange(new Control[] { lblSearch, _txtSearch, btnDelete, btnAddStock, btnLowStockFilter });
+        var btnFixNegativeStock = new Button { Text = "Eksi Stokları Sıfırla", Location = new Point(740, 8), Size = new Size(155, 34) };
+        Theme.ApplyModernButton(btnFixNegativeStock, Theme.DangerRedDark, Color.White, 9.5F, true);
+        btnFixNegativeStock.Click += OnFixNegativeStockClick;
+
+        pnlSearch.Controls.AddRange(new Control[] { lblSearch, _txtSearch, btnDelete, btnAddStock, btnLowStockFilter, btnFixNegativeStock });
 
         // DataGridView
         _gridProducts = new DataGridView
@@ -413,14 +417,51 @@ public class ProductForm : Form
         var list = _productRepo.Search(query ?? "");
         _gridProducts.DataSource = list;
 
-        // Color low stock rows
+        // Color low stock and negative stock rows
         foreach (DataGridViewRow row in _gridProducts.Rows)
         {
-            if (row.DataBoundItem is Product p && p.StockQuantity <= 5)
+            if (row.DataBoundItem is Product p)
             {
-                row.DefaultCellStyle.BackColor = Color.FromArgb(254, 242, 242); // Light red
-                row.DefaultCellStyle.ForeColor = Color.FromArgb(185, 28, 28);
+                if (p.StockQuantity < 0)
+                {
+                    row.DefaultCellStyle.BackColor = Color.FromArgb(254, 226, 226); // Stronger alert red
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(185, 28, 28);   // Dark red
+                    row.DefaultCellStyle.Font = new Font(_gridProducts.Font, FontStyle.Bold);
+                }
+                else if (p.StockQuantity <= 5)
+                {
+                    row.DefaultCellStyle.BackColor = Color.FromArgb(254, 242, 242); // Soft light red
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(185, 28, 28);
+                }
             }
+        }
+    }
+
+    private void OnFixNegativeStockClick(object? sender, EventArgs e)
+    {
+        var negList = _productRepo.GetNegativeStockProducts();
+        if (negList.Count == 0)
+        {
+            MessageBox.Show("Sistemde eksi bakiyeli ürün bulunmuyor. Tüm ürün stokları normal seviyede.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        string names = string.Join(", ", negList.Take(3).Select(x => $"{x.Name} ({x.StockQuantity:0.##})"));
+        if (negList.Count > 3) names += "...";
+
+        var res = MessageBox.Show(
+            $"Sistemde stoğu eksiye düşmüş toplam {negList.Count} ürün tespit edildi!\n({names})\n\nBu ürünlerin stoğunu '0' olarak sıfırlamak istiyor musunuz?",
+            "Eksi Stokları Sıfırla",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning);
+
+        if (res == DialogResult.Yes)
+        {
+            int updated = _productRepo.ResetNegativeStocksToZero();
+            RefreshProductList(_txtSearch.Text);
+            _lblStatusInfo.Text = $"{updated} adet eksi bakiyeli ürünün stoğu '0' olarak düzeltildi.";
+            _lblStatusInfo.ForeColor = Theme.SuccessGreenDark;
+            SoundService.PlaySuccessBeep();
         }
     }
 

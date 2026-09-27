@@ -16,6 +16,7 @@ public class SettingsForm : Form
     private TextBox _txtReceiptHeader = null!;
     private TextBox _txtReceiptFooter = null!;
     private CheckBox _chkCalculateChange = null!;
+    private ComboBox _cmbStockAction = null!;
     private CheckBox _chkSound = null!;
     private Label _lblDbInfo = null!;
 
@@ -138,18 +139,18 @@ public class SettingsForm : Form
         // Sales & Checkout Preferences Group
         var grpSales = new GroupBox
         {
-            Text = "  Kasa ve Satış Tercihleri  ",
+            Text = "  Kasa, Satış ve Stok Aşımı Tercihleri  ",
             Font = Theme.TitleFont,
             Location = new Point(20, 250),
-            Size = new Size(675, 115),
+            Size = new Size(675, 195),
             BackColor = Theme.SurfaceBg
         };
 
         _chkCalculateChange = new CheckBox
         {
             Text = "Nakit Satışta Para Üstü Hesaplama Ekranını Aç (F12)",
-            Location = new Point(20, 28),
-            Size = new Size(620, 26),
+            Location = new Point(20, 25),
+            Size = new Size(620, 24),
             Font = Theme.BoldFont,
             ForeColor = Theme.PrimaryBlueDark,
             Checked = true
@@ -157,21 +158,55 @@ public class SettingsForm : Form
 
         var lblChangeHelp = new Label
         {
-            Text = "• AÇIK (Önerilen): F12'ye basıldığında para üstü hesaplama ekranı gelir, müşteriden alınan para girilir.\n• KAPALI (Hızlı Kasa): F12'ye basıldığında para üstü sormadan tek tıkla doğrudan nakit satış tamamlanır.",
-            Location = new Point(20, 58),
-            Size = new Size(630, 45),
+            Text = "• AÇIK (Önerilen): F12'ye basıldığında para üstü ekranı gelir, müşteriden alınan para girilir.\n• KAPALI (Hızlı Kasa): F12'ye basıldığında para üstü sormadan tek tıkla satış tamamlanır.",
+            Location = new Point(20, 49),
+            Size = new Size(630, 36),
             Font = new Font("Segoe UI", 9F, FontStyle.Regular),
             ForeColor = Color.FromArgb(100, 116, 139)
         };
 
-        grpSales.Controls.AddRange(new Control[] { _chkCalculateChange, lblChangeHelp });
+        var lblStockAction = new Label
+        {
+            Text = "Stok Miktarı Aşıldığında / Tükendiğinde Kasa Davranışı:",
+            Location = new Point(20, 92),
+            Size = new Size(420, 22),
+            Font = Theme.BoldFont,
+            ForeColor = Theme.PrimaryBlueDark
+        };
+
+        _cmbStockAction = new ComboBox
+        {
+            Location = new Point(20, 116),
+            Size = new Size(480, 28),
+            Font = Theme.RegularFont,
+            DropDownStyle = ComboBoxStyle.DropDownList
+        };
+        _cmbStockAction.Items.AddRange(new object[] {
+            "Kasiyerden Ek Onay İsteyerek Satışa İzin Ver (Önerilen)",
+            "Satışı Tamamen Engelle (Eksiye Asla Düşemez)"
+        });
+        _cmbStockAction.SelectedIndex = 0;
+
+        var lblStockHelp = new Label
+        {
+            Text = "• Ek Onay: Barkod okutulduğunda stok aşılırsa 'Maksimum stok aşılıyor' uyarısı çıkar, kasiyer onay verirse eklenir.\n• Engelle: Stok yetersizse sisteme eklenmesine izin verilmez, eksi stok oluşması tamamen engellenir.",
+            Location = new Point(20, 148),
+            Size = new Size(630, 38),
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(100, 116, 139)
+        };
+
+        grpSales.Controls.AddRange(new Control[] {
+            _chkCalculateChange, lblChangeHelp,
+            lblStockAction, _cmbStockAction, lblStockHelp
+        });
 
         // Telegram Cloud Backup Group
         var grpTelegram = new GroupBox
         {
             Text = "  Telegram Otomatik Bulut Yedekleme  ",
             Font = Theme.TitleFont,
-            Location = new Point(20, 375),
+            Location = new Point(20, 455),
             Size = new Size(675, 235),
             BackColor = Theme.SurfaceBg
         };
@@ -236,7 +271,7 @@ public class SettingsForm : Form
         {
             Text = "  Yerel Veritabanı ve Ses Ayarları  ",
             Font = Theme.TitleFont,
-            Location = new Point(20, 620),
+            Location = new Point(20, 705),
             Size = new Size(675, 140),
             BackColor = Theme.SurfaceBg
         };
@@ -287,6 +322,7 @@ public class SettingsForm : Form
         _txtReceiptHeader.TextChanged += (s, e) => AutoSaveField();
         _txtReceiptFooter.TextChanged += (s, e) => AutoSaveField();
         _chkCalculateChange.CheckedChanged += (s, e) => AutoSaveField();
+        _cmbStockAction.SelectedIndexChanged += (s, e) => AutoSaveField();
         _txtTelegramToken.TextChanged += (s, e) => AutoSaveField();
         _txtTelegramChatId.TextChanged += (s, e) => AutoSaveField();
         _chkTelegramEnabled.CheckedChanged += (s, e) => AutoSaveField();
@@ -312,6 +348,10 @@ public class SettingsForm : Form
         _txtReceiptHeader.Text = _settingsRepo.Get("ReceiptHeader", "HOŞGELDİNİZ");
         _txtReceiptFooter.Text = _settingsRepo.Get("ReceiptFooter", "BİZİ TERCİH ETTİĞİNİZ İÇİN TEŞEKKÜR EDERİZ");
         _chkCalculateChange.Checked = _settingsRepo.Get("CalculateChange", "1") != "0";
+
+        string stockAction = _settingsRepo.Get("StockExceedAction", "warn_confirm");
+        _cmbStockAction.SelectedIndex = stockAction == "block" ? 1 : 0;
+
         _chkSound.Checked = SoundService.SoundEnabled;
 
         // Telegram settings
@@ -353,6 +393,7 @@ public class SettingsForm : Form
         _settingsRepo.Set("ReceiptHeader", _txtReceiptHeader.Text.Trim());
         _settingsRepo.Set("ReceiptFooter", _txtReceiptFooter.Text.Trim());
         _settingsRepo.Set("CalculateChange", _chkCalculateChange.Checked ? "1" : "0");
+        _settingsRepo.Set("StockExceedAction", _cmbStockAction.SelectedIndex == 1 ? "block" : "warn_confirm");
 
         SoundService.SoundEnabled = _chkSound.Checked;
 

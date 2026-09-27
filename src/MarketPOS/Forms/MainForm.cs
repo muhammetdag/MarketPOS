@@ -154,9 +154,10 @@ public class MainForm : Form
         {
             Text = "BARKOD:",
             Font = Theme.TitleFont,
-            ForeColor = Color.FromArgb(30, 41, 59),
+            ForeColor = Theme.PrimaryBlueDark,
             Location = new Point(12, 22),
-            Size = new Size(95, 30)
+            Size = new Size(95, 30),
+            Cursor = Cursors.Hand
         };
 
         _txtBarcode = new TextBox
@@ -164,9 +165,20 @@ public class MainForm : Form
             Location = new Point(115, 16),
             Size = new Size(480, 40),
             Font = new Font("Segoe UI", 16F, FontStyle.Bold),
-            PlaceholderText = "Barkodu okutun veya yazıp Enter'a basın... (Örn: 5*barkod)"
+            PlaceholderText = "Barkodu okutun (Her an aktif) veya yazıp Enter'a basın...",
+            TabIndex = 0
         };
         _txtBarcode.KeyDown += OnBarcodeKeyDown;
+        _txtBarcode.GotFocus += (s, e) =>
+        {
+            _txtBarcode.BackColor = Color.FromArgb(254, 249, 195);
+            lblBarcodeIcon.ForeColor = Theme.SuccessGreenDark;
+        };
+        _txtBarcode.LostFocus += (s, e) =>
+        {
+            _txtBarcode.BackColor = Color.White;
+            lblBarcodeIcon.ForeColor = Theme.PrimaryBlueDark;
+        };
 
         var btnAddBarcode = new Button
         {
@@ -336,15 +348,34 @@ public class MainForm : Form
         };
         _clockTimer.Start();
 
-        // Keyboard Shortcuts
+        // Keyboard Shortcuts & Global Barcode Scanner Capture
         this.KeyDown += OnMainFormKeyDown;
+        this.KeyPress += OnMainFormKeyPress;
 
         this.Shown += (s, e) =>
         {
             LoadHeaderAndSettings();
             LoadQuickButtons();
-            _txtBarcode.Focus();
+            this.BeginInvoke((MethodInvoker)FocusBarcodeBox);
         };
+
+        this.Activated += (s, e) =>
+        {
+            this.BeginInvoke((MethodInvoker)FocusBarcodeBox);
+        };
+
+        // Click anywhere on empty areas to refocus barcode scanner input
+        pnlBody.Click += (s, e) => FocusBarcodeBox();
+        pnlLeft.Click += (s, e) => FocusBarcodeBox();
+        pnlBarcodeBar.Click += (s, e) => FocusBarcodeBox();
+        lblBarcodeIcon.Click += (s, e) => FocusBarcodeBox();
+        pnlDisplayCard.Click += (s, e) => FocusBarcodeBox();
+        _lblTotalDisplay.Click += (s, e) => FocusBarcodeBox();
+        _lblCartSummary.Click += (s, e) => FocusBarcodeBox();
+        grpFastButtons.Click += (s, e) => FocusBarcodeBox();
+        _pnlFastButtons.Click += (s, e) => FocusBarcodeBox();
+        pnlTopNav.Click += (s, e) => FocusBarcodeBox();
+        _lblMarketHeader.Click += (s, e) => FocusBarcodeBox();
     }
 
     private void ConfigureCartGrid()
@@ -540,11 +571,26 @@ public class MainForm : Form
             return;
         }
 
-        // Check if item is already in cart, if so, increase quantity
         var existingInCart = _cartItems.FirstOrDefault(c => c.Barcode == product.Barcode);
+        decimal currentCartQty = existingInCart?.Quantity ?? 0m;
+
+        var promptResult = CheckStockAndPrompt(product, currentCartQty, quantity, out decimal finalQty);
+        if (promptResult == StockPromptResult.Cancel || finalQty <= 0)
+        {
+            return;
+        }
+
+        // Check if item is already in cart, if so, increase quantity
         if (existingInCart != null)
         {
-            existingInCart.Quantity += quantity;
+            if (promptResult == StockPromptResult.AddRemainingOnly)
+            {
+                existingInCart.Quantity = Math.Max(0, product.StockQuantity);
+            }
+            else
+            {
+                existingInCart.Quantity += finalQty;
+            }
             _cartItems.ResetBindings();
         }
         else
@@ -556,7 +602,7 @@ public class MainForm : Form
                 Barcode = product.Barcode,
                 ProductName = product.Name,
                 UnitPrice = product.SellPrice,
-                Quantity = quantity,
+                Quantity = finalQty,
                 Unit = product.Unit
             };
             _cartItems.Add(cartItem);
@@ -574,10 +620,63 @@ public class MainForm : Form
         }
     }
 
+    private StockPromptResult CheckStockAndPrompt(Product product, decimal currentCartQty, decimal requestedAddQty, out decimal finalAddQty)
+    {
+        finalAddQty = requestedAddQty;
+        decimal targetTotal = currentCartQty + requestedAddQty;
+        decimal availableStock = product.StockQuantity;
+
+        // If availableStock > 0 and targetTotal <= availableStock, stock is completely sufficient
+        if (availableStock > 0 && targetTotal <= availableStock)
+        {
+            return StockPromptResult.ProceedAnyway;
+        }
+
+        // Insufficient stock, 0 stock, or already negative stock
+        SoundService.PlayErrorBeep();
+        string stockAction = _settingsRepo.Get("StockExceedAction", "warn_confirm");
+        bool isStrictBlock = stockAction == "block";
+
+        using var dlg = new StockWarningDialog(product, currentCartQty, targetTotal, isStrictBlock);
+        dlg.ShowDialog(this);
+
+        if (dlg.Result == StockPromptResult.ProceedAnyway)
+        {
+            finalAddQty = requestedAddQty;
+            return StockPromptResult.ProceedAnyway;
+        }
+        else if (dlg.Result == StockPromptResult.AddRemainingOnly)
+        {
+            decimal remaining = Math.Max(0, availableStock - currentCartQty);
+            finalAddQty = remaining;
+            return StockPromptResult.AddRemainingOnly;
+        }
+        else
+        {
+            finalAddQty = 0;
+            return StockPromptResult.Cancel;
+        }
+    }
+
     private void ModifySelectedQuantity(decimal delta)
     {
         if (_gridCart.SelectedRows.Count == 0 || _gridCart.SelectedRows[0].DataBoundItem is not CartItem item)
             return;
+
+        if (delta > 0)
+        {
+            var product = _productRepo.GetById(item.ProductId) ?? _productRepo.GetByBarcode(item.Barcode);
+            if (product != null)
+            {
+                var promptResult = CheckStockAndPrompt(product, item.Quantity, delta, out decimal finalAddQty);
+                if (promptResult == StockPromptResult.Cancel || finalAddQty <= 0)
+                {
+                    _txtBarcode.Focus();
+                    return;
+                }
+                delta = finalAddQty;
+            }
+        }
 
         item.Quantity += delta;
         if (item.Quantity <= 0)
@@ -741,6 +840,30 @@ public class MainForm : Form
                 }
                 else
                 {
+                    if (newQty > item.Quantity)
+                    {
+                        var product = _productRepo.GetById(item.ProductId) ?? _productRepo.GetByBarcode(item.Barcode);
+                        if (product != null)
+                        {
+                            decimal requestedDiff = newQty - item.Quantity;
+                            var promptResult = CheckStockAndPrompt(product, item.Quantity, requestedDiff, out decimal finalAddQty);
+                            if (promptResult == StockPromptResult.Cancel)
+                            {
+                                _txtBarcode.Focus();
+                                return;
+                            }
+                            else if (promptResult == StockPromptResult.AddRemainingOnly)
+                            {
+                                newQty = Math.Max(0, product.StockQuantity);
+                                if (newQty <= 0)
+                                {
+                                    _txtBarcode.Focus();
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
                     item.Quantity = newQty;
                     _cartItems.ResetBindings();
                 }
@@ -977,11 +1100,23 @@ public class MainForm : Form
             return;
         }
 
+        // If Enter is pressed while focus is outside barcode box, process the barcode
+        if (e.KeyCode == Keys.Enter && !e.Alt)
+        {
+            if (!_txtBarcode.Focused && !string.IsNullOrWhiteSpace(_txtBarcode.Text))
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                ProcessBarcodeEntry();
+                return;
+            }
+        }
+
         switch (e.KeyCode)
         {
             case Keys.F1:
                 e.Handled = true;
-                _txtBarcode.Focus();
+                FocusBarcodeBox();
                 _txtBarcode.SelectAll();
                 break;
             case Keys.F2:
@@ -1016,6 +1151,42 @@ public class MainForm : Form
                 e.Handled = true;
                 ClearCartWithConfirm();
                 break;
+        }
+    }
+
+    private void OnMainFormKeyPress(object? sender, KeyPressEventArgs e)
+    {
+        if (_txtBarcode.Focused) return;
+
+        // Automatically route any typing or barcode scanner characters to barcode input box
+        if (!char.IsControl(e.KeyChar))
+        {
+            FocusBarcodeBox();
+            _txtBarcode.SelectedText = e.KeyChar.ToString();
+            e.Handled = true;
+        }
+        else if (e.KeyChar == (char)Keys.Back)
+        {
+            FocusBarcodeBox();
+            if (_txtBarcode.SelectionLength > 0)
+            {
+                _txtBarcode.SelectedText = "";
+            }
+            else if (_txtBarcode.Text.Length > 0 && _txtBarcode.SelectionStart > 0)
+            {
+                int pos = _txtBarcode.SelectionStart;
+                _txtBarcode.Text = _txtBarcode.Text.Remove(pos - 1, 1);
+                _txtBarcode.SelectionStart = pos - 1;
+            }
+            e.Handled = true;
+        }
+    }
+
+    private void FocusBarcodeBox()
+    {
+        if (!this.IsDisposed && _txtBarcode != null && _txtBarcode.CanFocus)
+        {
+            _txtBarcode.Focus();
         }
     }
 }

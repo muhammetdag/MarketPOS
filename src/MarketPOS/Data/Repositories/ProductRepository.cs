@@ -194,6 +194,47 @@ public class ProductRepository
         return list;
     }
 
+    public List<Product> GetNegativeStockProducts()
+    {
+        var list = new List<Product>();
+        using var conn = DatabaseContext.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT Id, Barcode, Name, BuyPrice, SellPrice, StockQuantity, Unit, KdvRate, IsFastProduct, CreatedAt, UpdatedAt
+            FROM Products 
+            WHERE StockQuantity < 0
+            ORDER BY StockQuantity ASC;
+        ";
+
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(MapProduct(reader));
+        }
+        return list;
+    }
+
+    public int ResetNegativeStocksToZero()
+    {
+        using var conn = DatabaseContext.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            UPDATE Products 
+            SET StockQuantity = 0,
+                UpdatedAt = @updated
+            WHERE StockQuantity < 0;
+        ";
+        cmd.Parameters.AddWithValue("@updated", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+        int affected = cmd.ExecuteNonQuery();
+
+        if (affected > 0)
+        {
+            OnProductsChanged?.Invoke();
+        }
+
+        return affected;
+    }
+
     public List<QuickButton> GetQuickButtons()
     {
         var list = new List<QuickButton>();
