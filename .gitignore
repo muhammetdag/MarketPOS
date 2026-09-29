@@ -10,6 +10,8 @@ TestResults/
 publish/
 publish-standalone/
 publish-singlefile/
+publish-win7/
+*.zip
 
 ## Visual Studio & IDE Specific Files
 .vs/

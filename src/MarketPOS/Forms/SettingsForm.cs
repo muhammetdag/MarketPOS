@@ -221,10 +221,12 @@ public class SettingsForm : Form
         };
 
         var lblToken = new Label { Text = "Bot Token:", Location = new Point(20, 65), Size = new Size(130, 25), Font = Theme.BoldFont };
-        _txtTelegramToken = new TextBox { Location = new Point(160, 62), Size = new Size(480, 28), Font = Theme.RegularFont, PlaceholderText = "Örn: 123456789:ABCdefGhIJKlmNoPQRstuVWXyz..." };
+        _txtTelegramToken = new TextBox { Location = new Point(160, 62), Size = new Size(480, 28), Font = Theme.RegularFont };
+        _txtTelegramToken.SetPlaceholder("Örn: 123456789:ABCdefGhIJKlmNoPQRstuVWXyz...");
 
         var lblChatId = new Label { Text = "Chat ID:", Location = new Point(20, 103), Size = new Size(130, 25), Font = Theme.BoldFont };
-        _txtTelegramChatId = new TextBox { Location = new Point(160, 100), Size = new Size(480, 28), Font = Theme.RegularFont, PlaceholderText = "Örn: 987654321 veya @kanal_adi" };
+        _txtTelegramChatId = new TextBox { Location = new Point(160, 100), Size = new Size(480, 28), Font = Theme.RegularFont };
+        _txtTelegramChatId.SetPlaceholder("Örn: 987654321 veya @kanal_adi");
 
         var lblPeriod = new Label { Text = "Yedekleme Sıklığı:", Location = new Point(20, 141), Size = new Size(140, 25), Font = Theme.BoldFont };
         _cmbTelegramPeriod = new ComboBox

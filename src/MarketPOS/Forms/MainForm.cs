@@ -165,9 +165,9 @@ public class MainForm : Form
             Location = new Point(115, 16),
             Size = new Size(480, 40),
             Font = new Font("Segoe UI", 16F, FontStyle.Bold),
-            PlaceholderText = "Barkodu okutun (Her an aktif) veya yazıp Enter'a basın...",
             TabIndex = 0
         };
+        _txtBarcode.SetPlaceholder("Barkodu okutun (Her an aktif) veya yazıp Enter'a basın...");
         _txtBarcode.KeyDown += OnBarcodeKeyDown;
         _txtBarcode.GotFocus += (s, e) =>
         {
@@ -539,7 +539,7 @@ public class MainForm : Form
         if (input.Contains('*') || input.Contains('x') || input.Contains('X'))
         {
             char sep = input.Contains('*') ? '*' : (input.Contains('x') ? 'x' : 'X');
-            string[] parts = input.Split(sep, 2);
+            string[] parts = input.Split(new[] { sep }, 2);
             if (parts.Length == 2 && decimal.TryParse(parts[0].Trim().Replace(",", "."), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal q))
             {
                 quantity = q;

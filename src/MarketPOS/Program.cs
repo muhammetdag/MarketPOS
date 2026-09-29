@@ -10,7 +10,12 @@ static class Program
     [STAThread]
     static void Main()
     {
+#if NETCOREAPP
         ApplicationConfiguration.Initialize();
+#else
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+#endif
         Application.Run(new MainForm());
     }    
 }

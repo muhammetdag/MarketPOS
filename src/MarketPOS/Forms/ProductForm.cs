@@ -197,7 +197,8 @@ public class ProductForm : Form
         };
 
         var lblSearch = new Label { Text = "Ürün Ara:", Location = new Point(5, 12), Size = new Size(75, 25), Font = Theme.BoldFont };
-        _txtSearch = new TextBox { Location = new Point(85, 8), Size = new Size(240, 30), Font = Theme.RegularFont, PlaceholderText = "Barkod veya ürün adı..." };
+        _txtSearch = new TextBox { Location = new Point(85, 8), Size = new Size(240, 30), Font = Theme.RegularFont };
+        _txtSearch.SetPlaceholder("Barkod veya ürün adı...");
         _txtSearch.TextChanged += (s, e) => RefreshProductList(_txtSearch.Text);
 
         var btnDelete = new Button { Text = "Seçili Ürünü Sil", Location = new Point(335, 8), Size = new Size(125, 34) };

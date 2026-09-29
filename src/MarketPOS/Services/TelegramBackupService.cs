@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -18,6 +19,7 @@ public class TelegramBackupService
 
     private static HttpClient CreateHttpClient()
     {
+#if NETCOREAPP
         var handler = new SocketsHttpHandler
         {
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
@@ -57,6 +59,19 @@ public class TelegramBackupService
         {
             Timeout = TimeSpan.FromSeconds(60)
         };
+#else
+        try
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        }
+        catch { }
+
+        var handler = new HttpClientHandler();
+        return new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(60)
+        };
+#endif
     }
 
     private readonly SettingsRepository _settingsRepo = new();
@@ -135,7 +150,11 @@ public class TelegramBackupService
                              $"💵 <b>Nakit:</b> {summary.CashTotal:N2} ₺ | 💳 <b>Kart:</b> {summary.CardTotal:N2} ₺\n" +
                              $"📁 <b>Dosya:</b> {safeFileName}";
 
+#if NETCOREAPP
             byte[] fileBytes = await File.ReadAllBytesAsync(tempBackupFile);
+#else
+            byte[] fileBytes = await Task.Run(() => File.ReadAllBytes(tempBackupFile));
+#endif
             string url = $"https://api.telegram.org/bot{token.Trim()}/sendDocument";
 
             // 3. Send with automatic retry (up to 3 attempts with progressive delay)
