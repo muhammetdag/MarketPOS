@@ -2,20 +2,20 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFrameworks>net10.0-windows;net48</TargetFrameworks>
+    <TargetFrameworks>net10.0-windows;net48;net472</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <PlatformTarget Condition="'$(TargetFramework)' == 'net48'">x86</PlatformTarget>
+    <PlatformTarget Condition="'$(TargetFramework)' == 'net48' or '$(TargetFramework)' == 'net472'">x86</PlatformTarget>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48' or '$(TargetFramework)' == 'net472'">
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <Reference Include="System.Net.Http" />
   </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+  <ItemGroup Condition="'$(TargetFramework)' != 'net48' and '$(TargetFramework)' != 'net472'">
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
   </ItemGroup>
 
